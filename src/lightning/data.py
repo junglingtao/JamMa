@@ -2,7 +2,6 @@ import os
 import math
 from collections import abc
 from loguru import logger
-from torch.utils.data.dataset import Dataset
 from tqdm import tqdm
 from os import path as osp
 from pathlib import Path
@@ -11,7 +10,6 @@ from joblib import Parallel, delayed
 import pytorch_lightning as pl
 from torch import distributed as dist
 from torch.utils.data import (
-    Dataset,
     DataLoader,
     ConcatDataset,
     DistributedSampler,

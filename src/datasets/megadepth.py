@@ -49,7 +49,7 @@ class MegaDepthDataset(Dataset):
 
         # for training
         self.augment_fn = augment_fn if mode == 'train' else None
-        self.coarse_scale = getattr(kwargs, 'coarse_scale', 0.125)  #
+        self.coarse_scale = kwargs.get('coarse_scale', 0.125)
 
     def __len__(self):
         return len(self.pair_infos)

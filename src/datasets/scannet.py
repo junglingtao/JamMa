@@ -1,6 +1,4 @@
 from os import path as osp
-from typing import Dict
-from unicodedata import name
 
 import numpy as np
 import torch
@@ -42,7 +40,7 @@ class ScanNetDataset(utils.data.Dataset):
         # prepare data_names, intrinsics and extrinsics(T)
         with np.load(npz_path) as data:
             self.data_names = data['name']
-            if 'score' in data.keys() and mode not in ['val' or 'test']:
+            if 'score' in data.keys() and mode not in ['val', 'test']:
                 kept_mask = data['score'] > min_overlap_score
                 self.data_names = self.data_names[kept_mask]
         self.intrinsics = dict(np.load(intrinsic_path))

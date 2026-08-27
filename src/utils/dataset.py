@@ -7,7 +7,7 @@ import h5py
 import torch
 from numpy.linalg import inv
 from einops.einops import rearrange, repeat
-from PIL import Image, ImageFile
+from PIL import ImageFile
 import torchvision.transforms as transforms
 from torchvision.transforms.functional import InterpolationMode
 

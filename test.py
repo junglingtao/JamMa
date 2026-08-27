@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     # tune when testing
     if args.thr is not None:
-        config.LOFTR.MATCH_COARSE.THR = args.thr
+        config.JAMMA.MATCH_COARSE.THR = args.thr
 
     loguru_logger.info(f"Args and config initialized!")
 
