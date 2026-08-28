@@ -2,14 +2,15 @@
 读取两张图片，交给 JamMa 神经网络寻找对应点，然后生成两张可视化结果图。
 """
 
-import argparse
+import argparse  # 用于读取命令行参数
 import sys
 from pathlib import Path
 
 import torch
-import torch.nn.functional as F
-from loguru import logger
+import torch.nn.functional as F  # PyTorch 的函数工具集合
+from loguru import logger  # 用于工程项目打印日志
 
+# __file__->当前目录，.parents[1]向上找两级目录，同理0是当前目录，1是上一级目录，2是上两级目录
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
