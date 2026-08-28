@@ -47,41 +47,60 @@ if __name__ == "__main__":
     opt = parser.parse_args()  # 读取你在终端输入的参数
     Path(opt.output_dir).mkdir(exist_ok=True, parents=True)  # 创建输出目录
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"  # 选择 CPU 或 GPU
+
+    # 根据配置 cfg 创建 JamMa 神经网络->切换到测试模式 eval()->将模型移动到指定设备（CPU 或 GPU）
     jamma = JamMa(config=cfg).eval().to(device)
 
-    image0, scale0, mask0, prepad_size0 = read_megadepth_color(
-        opt.image1, 832, 16, True
+    """
+    image0、image1 即 PyTorch Tensor->[1, 3, H, W]
+    scale0、scale1 即图片缩放比例->从原始尺寸缩放到新尺寸时的比例
+    mask0、mask1 即图片掩码, 原始832 x 600->832 x 832, mask会标记新增区域
+    prepad_size0、prepad_size1 即填充之前的图片尺寸->后续如果需要把匹配点映射回原图，就可能使用这个信息
+    """
+    image0, scale0, mask0, prepad_size0 = read_megadepth_color(  # 读取第一张图片
+        opt.image1,  # 读入jpg
+        832,
+        16,
+        True,  # 图片路径、调整后的最大尺寸、尺寸必须能被 16 整除、是否进行填充
     )
     image1, scale1, mask1, prepad_size1 = read_megadepth_color(
         opt.image2, 832, 16, True
     )
+    # 检查 mask 是否存在，图片尺寸改变必须要有mask，否则无法训练
     if mask0 is None or mask1 is None:
         raise RuntimeError("Image masks are required when padding is enabled.")
-
+    """
+    缩小mask:
+    mask0[None, None]->假设原来的 mask0 形状是[H, W], 加两个 None 后，形状变成[1, 1, H, W]
+    [1, 1, H, W]->[batch, channel, height, width] | batch, 一次处理多少张图片 | channel, 通道数W
+    """
     mask0 = F.interpolate(
-        mask0[None, None].float(),
-        scale_factor=0.125,
-        mode="nearest",
-        recompute_scale_factor=False,
-    )[0].bool()
+        mask0[None, None].float(),  # tensor要转成浮点数参与计算
+        scale_factor=0.125,  # 缩放比例0.125->缩小到原来的 1/8
+        mode="nearest",  # 最近邻插值法, 因为mask 只有两种状态0/1
+        recompute_scale_factor=False,  # 按照给定的 0.125 使用缩放比例，不重新计算比例
+    )[0].bool()  # [1, 1, 新H, 新W]->[1, 新H, 新W], 把浮点数重新转换成布尔值
     mask1 = F.interpolate(
         mask1[None, None].float(),
         scale_factor=0.125,
         mode="nearest",
         recompute_scale_factor=False,
     )[0].bool()
-    data = {
+    data = {  # 待计算的矩阵传入GPU
         "imagec_0": image0.to(device),
         "imagec_1": image1.to(device),
         "mask0": mask0.to(device),
         "mask1": mask1.to(device),
     }
 
-    logger.info(f"Matching: {opt.image1} and {opt.image2}")
-    jamma(data)
+    logger.info(
+        f"Matching: {opt.image1} and {opt.image2}"
+    )  # 打印日志，显示正在匹配的两张图片
+    jamma(data)  # 执行模型匹配, 相当于jamma.forward(data), 跑模型测试
     logger.info("Finish Matching, Visualizing")
 
-    make_confidence_figure(data, path=opt.output_dir + "viz1.png", dpi=300, topk=4000)
-    make_evaluation_figure_wheel(data, path=opt.output_dir + "viz2.png", topk=4000)
+    # topk:可视化前100个匹配点, dpi为分辨率
+    make_confidence_figure(data, path=opt.output_dir + "viz1.png", dpi=300, topk=100)
+    make_evaluation_figure_wheel(data, path=opt.output_dir + "viz2.png", topk=100)
     logger.info("Done")
