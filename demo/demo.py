@@ -12,35 +12,40 @@ from loguru import logger  # 用于工程项目打印日志
 
 # __file__->当前目录，.parents[1]向上找两级目录，同理0是当前目录，1是上一级目录，2是上两级目录
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(
+    0, str(PROJECT_ROOT)
+)  # 将PROJECT_ROOT插入到搜索路径的【最前面】（索引0）
 
-from src.utils.dataset import read_megadepth_color
-from src.utils.plotting import make_confidence_figure, make_evaluation_figure_wheel
+from src.utils.dataset import read_megadepth_color  # 读取 MegaDepth 数据集的彩色图像
+from src.utils.plotting import (  # 导入两个画图函数，生成生成viz1.png和viz2.png
+    make_confidence_figure,
+    make_evaluation_figure_wheel,
+)
 from utlis import JamMa, cfg
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(  # 创建一个命令行参数解析器
         description="Image pair matching with JamMa",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
+    parser.add_argument(  # 图片1参数
         "--image1",
         type=str,
         default=str(PROJECT_ROOT / "assets/figs/345822933_b5fb7b6feb_o.jpg"),
         help="Path to the source image",
     )
-    parser.add_argument(
+    parser.add_argument(  # 图片2参数
         "--image2",
         type=str,
         default=str(PROJECT_ROOT / "assets/figs/479605349_8aa68e066d_o.jpg"),
         help="Path to the target image",
     )
-    parser.add_argument(
+    parser.add_argument(  # 输出目录参数
         "--output_dir", type=str, default="output/", help="Path of the outputs"
     )
 
-    opt = parser.parse_args()
-    Path(opt.output_dir).mkdir(exist_ok=True, parents=True)
+    opt = parser.parse_args()  # 读取你在终端输入的参数
+    Path(opt.output_dir).mkdir(exist_ok=True, parents=True)  # 创建输出目录
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     jamma = JamMa(config=cfg).eval().to(device)
