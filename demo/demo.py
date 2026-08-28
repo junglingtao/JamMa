@@ -101,6 +101,6 @@ if __name__ == "__main__":
     logger.info("Finish Matching, Visualizing")
 
     # topk:可视化前100个匹配点, dpi为分辨率
-    make_confidence_figure(data, path=opt.output_dir + "viz1.png", dpi=300, topk=100)
-    make_evaluation_figure_wheel(data, path=opt.output_dir + "viz2.png", topk=100)
+    make_confidence_figure(data, path=opt.output_dir + "viz1.png", dpi=300, topk=50)
+    make_evaluation_figure_wheel(data, path=opt.output_dir + "viz2.png", topk=50)
     logger.info("Done")
