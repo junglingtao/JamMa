@@ -88,7 +88,7 @@ if __name__ == "__main__":
         recompute_scale_factor=False,
     )[0].bool()
     data = {  # 待计算的矩阵传入GPU
-        "imagec_0": image0.to(device),
+        "imagec_0": image0.to(device),  # 返回新的GPU Tensor
         "imagec_1": image1.to(device),
         "mask0": mask0.to(device),
         "mask1": mask1.to(device),
