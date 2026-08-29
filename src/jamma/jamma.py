@@ -1,3 +1,7 @@
+"""
+主模型/主匹配网络
+"""
+
 import torch
 import torch.nn.functional as F
 from einops.einops import rearrange
