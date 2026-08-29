@@ -3,6 +3,8 @@ from pytorch_lightning.profiler import SimpleProfiler, PassThroughProfiler
 from contextlib import contextmanager
 from pytorch_lightning.utilities import rank_zero_only
 
+# profiler 只测量阶段耗时，不参与模型数值计算。
+
 
 class InferenceProfiler(SimpleProfiler):
     """

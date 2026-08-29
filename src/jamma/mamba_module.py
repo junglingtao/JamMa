@@ -16,6 +16,9 @@ except ImportError:
     RMSNorm, LayerNorm = None, None
 from src.utils.profiler import PassThroughProfiler
 
+# Mamba 原本处理一维序列；本文件负责把二维特征图按多个方向展开成序列，
+# 让两张图片的特征共同交互，再把序列放回二维网格。
+
 
 class Block(nn.Module):
     def __init__(
@@ -51,6 +54,7 @@ class Block(nn.Module):
             )
 
     def forward(self, desc, inference_params=None):
+        # desc: [B,L,C]。LayerNorm、Mamba 和残差相加都保持这个形状。
         r"""Pass the input through the encoder layer.
 
         Args:
@@ -139,6 +143,7 @@ def _init_weights(
 
 
 def scan_jego(desc0, desc1, step_size):
+    # 输入两张 [B,C,H,W]，输出 4 个方向的 [B,4,L,C] 序列。
     desc_2w, desc_2h = torch.cat([desc0, desc1], 3), torch.cat([desc0, desc1], 2)
     _, _, org_h, org_2w = desc_2w.shape
     B, C, org_2h, org_w = desc_2h.shape
@@ -171,6 +176,7 @@ def scan_jego(desc0, desc1, step_size):
 
 
 def merge_jego(ys, ori_h: int, ori_w: int, step_size=2):
+    # scan_jego 的逆操作：把 4 组序列重新散回两张 [B,C,H,W] 特征图。
     B, K, C, L = ys.shape
     H, W = math.ceil(ori_h / step_size), math.ceil(ori_w / step_size)
 
@@ -202,6 +208,7 @@ def merge_jego(ys, ori_h: int, ori_w: int, step_size=2):
 
 
 def scan_jego_seq(desc0, desc1, step_size):
+    # 与 scan_jego 类似，但交错采样顺序不同，是备用实验实现。
     desc_2w, desc_2h = torch.cat([desc0, desc1], 3), torch.cat([desc0, desc1], 2)
     _, _, org_h, org_2w = desc_2w.shape
     B, C, org_2h, org_w = desc_2h.shape
@@ -234,6 +241,7 @@ def scan_jego_seq(desc0, desc1, step_size):
 
 
 def merge_jego_seq(ys, ori_h: int, ori_w: int, step_size=2):
+    # 还原 scan_jego_seq 的序列布局。
     B, K, C, L = ys.shape
     H, W = math.ceil(ori_h / step_size), math.ceil(ori_w / step_size)
 
@@ -265,6 +273,7 @@ def merge_jego_seq(ys, ori_h: int, ori_w: int, step_size=2):
 
 
 def scan_vim(desc0, desc1):
+    # 横向拼接两张图，再做正向和反向两条序列；输出 K=2。
     B, C, org_h, org_w = desc0.shape
     desc_2w = torch.cat([desc0, desc1], 3)
 
@@ -281,6 +290,7 @@ def scan_vim(desc0, desc1):
 
 
 def merge_vim(ys, org_h, org_w):
+    # 将两条横向序列合并并拆回两张图。
     B, K, C, L = ys.shape
 
     y_2w_f = ys[:, 0].reshape(B, C, org_h, 2 * org_w)
@@ -291,6 +301,7 @@ def merge_vim(ys, org_h, org_w):
 
 
 def scan_vmamba(desc0, desc1):
+    # 横向、纵向各做正反扫描；输出 K=4。
     B, C, org_h, org_w = desc0.shape
     desc_2w = torch.cat([desc0, desc1], 3)
     desc_2h = torch.cat([desc0, desc1], 2)
@@ -314,6 +325,7 @@ def scan_vmamba(desc0, desc1):
 
 
 def merge_vmamba(ys, org_h, org_w):
+    # 还原 scan_vmamba 的四个方向。
     B, K, C, L = ys.shape
 
     y_2w_f = ys[:, 0].reshape(B, C, org_h, 2 * org_w)
@@ -327,6 +339,7 @@ def merge_vmamba(ys, org_h, org_w):
 
 
 def scan_evmamba(desc0, desc1, step_size):
+    # 带步长的四方向扫描，属于备用实现。
     desc_2w, desc_2h = torch.cat([desc0, desc1], 3), torch.cat([desc0, desc1], 2)
     _, _, org_h, org_2w = desc_2w.shape
     B, C, org_2h, org_w = desc_2h.shape
@@ -358,6 +371,7 @@ def scan_evmamba(desc0, desc1, step_size):
 
 
 def merge_evmamba(ys, ori_h: int, ori_w: int, step_size=2):
+    # 还原带步长扫描结果。
     B, K, C, L = ys.shape
     H, W = math.ceil(ori_h / step_size), math.ceil(ori_w / step_size)
 
@@ -438,6 +452,8 @@ class JointMamba(nn.Module):
         self.aggregator = GLU_3(feature_dim, feature_dim)
 
     def forward(self, data):
+        # data 中 feat_8_* 原本是 [B,C,H,W] 或展平后的 [B,C,L]；
+        # 这里统一还原成二维，扫描后再写回 [B,C,L]。
         desc0, desc1 = data["feat_8_0"], data["feat_8_1"]
         desc0, desc1 = (
             desc0.view(data["bs"], -1, data["h_8"], data["w_8"]),

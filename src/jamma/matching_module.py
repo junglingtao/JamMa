@@ -5,6 +5,9 @@ from einops.einops import rearrange
 from loguru import logger
 INF = 1e9
 
+# 本文件把“特征相似度”变成“匹配点索引”。coarse 用整张特征图，
+# fine 只处理 coarse 选出的局部窗口。
+
 
 def mask_border(m, b: int, v):
     """ Mask borders with value
@@ -13,6 +16,7 @@ def mask_border(m, b: int, v):
         b (int)
         v (m.dtype)
     """
+    # m 是 [B,H0,W0,H1,W1]，把两张图的边缘位置全部设为 v。
     if b <= 0:
         return
 
@@ -85,6 +89,7 @@ class CoarseMatching(nn.Module):
         self.profiler = profiler
 
     def forward(self, feat_c0, feat_c1, data, mask_c0=None, mask_c1=None):
+        # feat_c*: [B,L,256]；相似度矩阵最终是 [B,L0,L1]。
         feat_c0 = self.final_proj(feat_c0)
         feat_c1 = self.final_proj(feat_c1)
 
@@ -92,6 +97,7 @@ class CoarseMatching(nn.Module):
         feat_c0, feat_c1 = map(lambda feat: feat / feat.shape[-1] ** .5,
                                [feat_c0, feat_c1])
 
+        # einsum 在最后的 C 维做点积，比较图 0 的每个位置和图 1 的每个位置。
         sim_matrix = torch.einsum("nlc,nsc->nls", feat_c0,
                                   feat_c1) / self.temperature
         if mask_c0 is not None:
@@ -211,6 +217,7 @@ class CoarseMatching(nn.Module):
 
     @torch.no_grad()
     def get_coarse_match_inference(self, sim_matrix, data):
+        # 推理时从 [B,L0,L1] 中筛出双向最近邻，返回粗匹配坐标。
         axes_lengths = {
             'h0c': data['hw0_c'][0],
             'w0c': data['hw0_c'][1],
@@ -289,6 +296,7 @@ class FineSubMatching(nn.Module):
         self.profiler = profiler
 
     def forward(self, feat_f0_unfold, feat_f1_unfold, data):
+        # 输入是 M 对窗口，每个窗口含 W^2 个 token：通常 [M,25,64]。
         M, WW, C = feat_f0_unfold.shape
         W_f = self.W_f
 
@@ -322,6 +330,7 @@ class FineSubMatching(nn.Module):
         # normalize
         feat_f0, feat_f1 = map(lambda feat: feat / feat.shape[-1] ** .5,
                                [feat_f0, feat_f1])
+        # 每个窗口内部两两比较，得到 [M,25,25]。
         sim_matrix = torch.einsum("nlc,nsc->nls", feat_f0,
                                   feat_f1) / self.temperature
 
@@ -331,6 +340,7 @@ class FineSubMatching(nn.Module):
         data.update(**self.get_fine_sub_match(conf_matrix_fine, feat_f0_unfold, feat_f1_unfold, data))
 
     def get_fine_sub_match(self, conf_matrix_fine, feat_f0_unfold, feat_f1_unfold, data):
+        # 把窗口内索引换算回原图坐标，并用 MLP 预测小数级偏移。
         with torch.no_grad():
             W_f = self.W_f
 

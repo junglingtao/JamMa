@@ -16,6 +16,8 @@ from src.utils.misc import get_rank_zero_only_logger, setup_gpus
 from src.utils.profiler import build_profiler
 from src.lightning.data import MultiSceneDataModule
 from src.lightning.lightning_jamma import PL_JamMa
+
+# 训练入口：解析参数 -> 合并配置 -> 创建模型/数据 -> trainer.fit。
 loguru_logger = get_rank_zero_only_logger(loguru_logger)
 
 

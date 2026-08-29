@@ -6,6 +6,8 @@ from loguru import logger
 from kornia.geometry.epipolar import numeric
 from kornia.geometry.conversions import convert_points_to_homogeneous
 
+# 评估模块：从匹配点估计相对位姿，再计算极线误差、AUC 和 precision/recall。
+
 
 # --- METRICS ---
 
@@ -48,6 +50,7 @@ def symmetric_epipolar_distance(pts0, pts1, E, K0, K1):
 
 
 def compute_symmetrical_epipolar_errors(data):
+    # 对每个 batch 的预测匹配计算极线误差，并写回 data。
     """ 
     Update:
         data (dict):{"epi_errs": [M]}
@@ -153,6 +156,7 @@ def estimate_lo_pose(kpts0, kpts1, K0, K1, thresh, conf=0.99999):
 
 
 def compute_pose_errors(data, config):
+    # 使用 RANSAC/LO-RANSAC 从匹配点估计姿态，输出旋转和平移误差。
     """
     Update:
         data (dict):{
@@ -421,6 +425,7 @@ def aggregate_metrics_f1(metrics, epi_err_thr=5e-4):
 
 
 def aggregate_metrics(metrics, epi_err_thr=5e-4):
+    # 将多个 batch 的指标合并成最终平均结果。
     """ Aggregate metrics for the whole dataset:
     (This method should be called once per dataset)
     1. AUC of the pose error (angular) at the threshold [5, 10, 20]
@@ -448,4 +453,3 @@ def aggregate_metrics(metrics, epi_err_thr=5e-4):
         return {**aucs, **precs, **num, 'scale_acc': scale_acc}
     else:
         return {**aucs, **precs, **num}
-

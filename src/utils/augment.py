@@ -1,5 +1,7 @@
 import albumentations as A
 
+# 训练图片增强：模拟暗光或移动端图片；增强前后空间尺寸通常不变。
+
 
 class DarkAug(object):
     """

@@ -7,6 +7,8 @@ from kornia.geometry.conversions import convert_points_to_homogeneous
 from kornia.geometry.epipolar import numeric
 from torch import nn
 
+# Loss 把 coarse 匹配、fine 窗口匹配和亚像素坐标误差合成一个标量。
+
 
 class Loss(nn.Module):
     def __init__(self, config):
@@ -17,6 +19,7 @@ class Loss(nn.Module):
         self.neg_w = self.loss_config["neg_weight"]
 
     def compute_fine_matching_loss(self, data):
+        # fine 预测和标签通常都是 [M,W^2,W^2]。
         """Point-wise Focal Loss with 0 / 1 confidence as gt.
         Args:
         data (dict): {
@@ -76,6 +79,7 @@ class Loss(nn.Module):
         return d
 
     def compute_sub_pixel_loss(self, data):
+        # 约束 fine 阶段预测的连续坐标偏移。
         """symmetric epipolar distance loss.
         Args:
         data (dict): {
@@ -111,6 +115,7 @@ class Loss(nn.Module):
         return loss.mean()
 
     def compute_coarse_loss(self, data, weight=None):
+        # coarse 预测和标签都是 [N,hw0,hw1] 的匹配矩阵。
         """Focal Loss with 0 / 1 confidence as gt.
         Args:
         data (dict): {
@@ -169,6 +174,7 @@ class Loss(nn.Module):
         return c_weight
 
     def forward(self, data):
+        # 按配置中的权重相加，返回总损失及各项日志。
         """
         Update:
             data (dict): update{

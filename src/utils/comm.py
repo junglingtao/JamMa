@@ -10,6 +10,8 @@ import logging
 import numpy as np
 import pickle
 import torch
+
+# 分布式训练辅助函数。单 GPU 时 world_size=1，大多数函数只处理当前进程数据。
 import torch.distributed as dist
 
 _LOCAL_PROCESS_GROUP = None
@@ -139,6 +141,7 @@ def _pad_to_largest_tensor(tensor, group):
 
 
 def all_gather(data, group=None):
+    # 所有进程都拿到每个进程的数据。
     """
     Run all_gather on arbitrary picklable data (not necessarily tensors).
 
@@ -177,6 +180,7 @@ def all_gather(data, group=None):
 
 
 def gather(data, dst=0, group=None):
+    # 只把所有进程的数据收集到 dst 进程。
     """
     Run gather on arbitrary picklable data (not necessarily tensors).
 
@@ -234,6 +238,7 @@ def shared_random_seed():
 
 
 def reduce_dict(input_dict, average=True):
+    # 对字典中每个标量 Tensor 做跨进程求和或平均。
     """
     Reduce the values in the dictionary from all processes so that process with rank
     0 has the reduced results.

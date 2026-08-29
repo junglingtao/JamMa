@@ -11,6 +11,8 @@ from src.utils.dataset import (
     read_scannet_intrinsic
 )
 
+# ScanNet 的样本字段与 MegaDepth 类似，但文件组织和位姿来源不同。
+
 
 class ScanNetDataset(utils.data.Dataset):
     def __init__(self,
@@ -58,12 +60,14 @@ class ScanNetDataset(utils.data.Dataset):
         return read_scannet_pose(pth)
 
     def _compute_rel_pose(self, scene_name, name0, name1):
+        # 用两帧绝对位姿计算图片 0 到图片 1 的相对变换。
         pose0 = self._read_abs_pose(scene_name, name0)
         pose1 = self._read_abs_pose(scene_name, name1)
         
         return np.matmul(pose1, inv(pose0))  # (4, 4)
 
     def __getitem__(self, idx):
+        # 读取一对图片、深度、内参和相对位姿。
         data_name = self.data_names[idx]
         scene_name, scene_sub_name, stem_name_0, stem_name_1 = data_name
         scene_name = f'scene{scene_name:04d}_{scene_sub_name:02d}'

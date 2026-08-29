@@ -6,8 +6,11 @@ from torch.utils.data import Dataset
 from loguru import logger
 from src.utils.dataset import read_megadepth_depth, read_megadepth_color
 
+# MegaDepth Dataset 把 npz 中的图片对信息转换成 JamMa 的 data 字典。
+
 
 def skew(x):
+    # 三维向量 [3] -> 叉乘矩阵 [3,3]。
     return np.array([[0, -x[2], x[1]],
                      [x[2], 0, -x[0]],
                      [-x[1], x[0], 0]])
@@ -55,6 +58,7 @@ class MegaDepthDataset(Dataset):
         return len(self.pair_infos)
 
     def __getitem__(self, idx):
+        # DataLoader 每取一个样本，就在这里读取图片和几何信息。
         (idx0, idx1), overlap_score, central_matches = self.pair_infos[idx]
 
         # read grayscale image and mask. (1, h, w) and (h, w)

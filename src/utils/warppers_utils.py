@@ -5,6 +5,8 @@ Modified from: https://github.com/cvg/glue-factory/blob/scannet1500/gluefactory/
 import numpy as np
 import torch
 
+# Pose/Camera 的底层数学：齐次坐标、旋转矩阵、畸变和像素坐标转换。
+
 
 def to_homogeneous(points):
     """Convert N-dimensional points to homogeneous coordinates.

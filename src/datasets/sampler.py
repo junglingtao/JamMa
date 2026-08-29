@@ -1,6 +1,8 @@
 import torch
 from torch.utils.data import Sampler, ConcatDataset
 
+# 训练采样器：从多个场景中取样，尽量让不同场景都参与一个 epoch。
+
 
 class RandomConcatSampler(Sampler):
     """ Random sampler for ConcatDataset. At each epoch, `n_samples_per_subset` samples will be draw from each subset

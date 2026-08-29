@@ -24,6 +24,8 @@ from src.utils.profiler import PassThroughProfiler
 from thop import profile
 from src.utils.plotting import make_matching_figures
 
+# PL_JamMa 是 Lightning 训练外壳；真正的 backbone、matcher 和 loss 在内部成员中。
+
 
 class PL_JamMa(pl.LightningModule):
     def __init__(self, config, pretrained_ckpt=None, profiler=None, dump_dir=None):
@@ -61,6 +63,7 @@ class PL_JamMa(pl.LightningModule):
         print('number of params:', n_parameters / 1e6)
 
     def configure_optimizers(self):
+        # Lightning 会自动调用此函数拿到 optimizer 和 scheduler。
         # FIXME: The scheduler did not work properly when `--resume_from_checkpoint`
         optimizer = build_optimizer(self, self.config)
         scheduler = build_scheduler(self.config, optimizer)
@@ -89,6 +92,7 @@ class PL_JamMa(pl.LightningModule):
         optimizer.zero_grad()
 
     def _train_inference(self, batch):
+        # 训练前向：生成监督 -> backbone -> matcher -> loss。
 
         with self.profiler.profile("Compute coarse supervision"):
             compute_supervision_coarse(batch, self.config)
@@ -109,6 +113,7 @@ class PL_JamMa(pl.LightningModule):
                 self.loss(batch)
 
     def _val_inference(self, batch):
+        # 验证前向：生成匹配结果，再计算几何指标。
 
         with self.profiler.profile("Compute coarse supervision"):
             compute_supervision_coarse(batch, self.config)
@@ -167,6 +172,7 @@ class PL_JamMa(pl.LightningModule):
         return ret_dict, rel_pair_names
 
     def training_step(self, batch, batch_idx):
+        # 一个训练 batch 的入口，返回用于反向传播的总 loss。
 
         self._train_inference(batch)
         # logging
@@ -184,6 +190,7 @@ class PL_JamMa(pl.LightningModule):
                 global_step=self.current_epoch)
 
     def validation_step(self, batch, batch_idx):
+        # 一个验证 batch 的入口，不更新模型参数。
         self._val_inference(batch)
         ret_dict, _ = self._compute_metrics_val(batch)
         ret_dict['metrics'] = {**ret_dict['metrics'], 'max_matches': [batch['num_candidates_max']]}
@@ -245,6 +252,7 @@ class PL_JamMa(pl.LightningModule):
         print(val_metrics_4tb)
 
     def test_step(self, batch, batch_idx):
+        # 一个测试 batch 的入口，必要时保存匹配可视化。
         with torch.autocast(enabled=self.config.JAMMA.MP, device_type='cuda'):
             self.start_event.record()
             with self.profiler.profile("Backbone"):

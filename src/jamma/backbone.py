@@ -13,7 +13,11 @@ from torch import nn
 
 class CovNextV2_nano(nn.Module):
     def __init__(self):
+        """
+        ConvNeXt 原本可以用于图片分类，但 JamMa 不需要分类，它需要中间特征
+        """
         super().__init__()  # 初始化 PyTorch 的基础神经网络功能
+        # 创建完整 Nano 后，下面几行会把分类网络裁剪成特征提取器。
         self.cnn = convnextv2_nano()  # ConvNeXt V2 Nano 网络对象
         self.cnn.norm = None  # 移除归一化层
         self.cnn.head = None  # 移除分类头
@@ -33,12 +37,15 @@ class CovNextV2_nano(nn.Module):
         self.lin_8 = nn.Conv2d(160, 256, 1)
 
     def forward(self, data):
+        # imagec_0/imagec_1: [B,3,H,W]；两张图片合成 [2B,3,H,W] 一次提取特征。
         B, _, H, W = data["imagec_0"].shape
         x = torch.cat([data["imagec_0"], data["imagec_1"]], 0)
+        # 返回 {4: [2B,80,H/4,W/4], 8: [2B,160,H/8,W/8]}。
         feature_pyramid = self.cnn.forward_features_8(x)
         feat_8_0, feat_8_1 = self.lin_8(feature_pyramid[8]).split(B)
         feat_4_0, feat_4_1 = self.lin_4(feature_pyramid[4]).split(B)
 
+        # coarse 网格中每个点代表原图约 8x8 的区域。
         scale = 8
         h_8, w_8 = H // scale, W // scale
         device = data["imagec_0"].device

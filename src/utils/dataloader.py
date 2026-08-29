@@ -1,5 +1,7 @@
 import numpy as np
 
+# 分布式数据加载辅助：把场景列表按 rank 切给不同训练进程。
+
 
 # --- PL-DATAMODULE ---
 

@@ -15,3 +15,4 @@ cfg.JAMMA.MATCH_COARSE.THR = 0.2
 cfg.JAMMA.FINE.THR = 0.1
 
 cfg.JAMMA.MATCH_COARSE.BORDER_RM = 2
+# 室内 ScanNet 测试配置。

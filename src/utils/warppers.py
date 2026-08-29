@@ -12,6 +12,9 @@ from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 import numpy as np
 import torch
 
+# 这里的 wrapper 让位姿 Pose、相机 Camera 保留 Tensor 的常用行为，
+# 同时提供投影、求逆等计算机视觉专用方法。
+
 from .warppers_utils import (
     J_distort_points,
     distort_points,

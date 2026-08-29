@@ -1,5 +1,7 @@
 import torch
 
+# 几何工具用深度、内参 K 和位姿 T 把一张图上的像素点投影到另一张图。
+
 
 @torch.no_grad()
 def warp_kpts(kpts0, depth0, depth1, T_0to1, K0, K1):
@@ -18,6 +20,7 @@ def warp_kpts(kpts0, depth0, depth1, T_0to1, K0, K1):
         calculable_mask (torch.Tensor): [N, L]
         warped_keypoints0 (torch.Tensor): [N, L, 2] <x0_hat, y1_hat>
     """
+    # kpts 是浮点像素坐标；取深度时必须转成整数索引。
     kpts0_long = kpts0.round().long()
 
     # Sample depth, get calculable_mask on depth != 0
@@ -71,6 +74,7 @@ def warp_kpts_fine(kpts0, depth0, depth1, T_0to1, K0, K1, b_ids):
         calculable_mask (torch.Tensor): [N, L]
         warped_keypoints0 (torch.Tensor): [N, L, 2] <x0_hat, y1_hat>
     """
+    # 与 warp_kpts 相同，但 b_ids 指出这 M 个窗口来自 batch 中哪些图片。
     kpts0_long = kpts0.round().long()
 
     # Sample depth, get calculable_mask on depth != 0

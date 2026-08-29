@@ -8,6 +8,8 @@ from kornia.utils import create_meshgrid
 from einops.einops import rearrange
 from .geometry import warp_kpts, warp_kpts_fine
 
+# 训练监督由深度图、相机内参和相对位姿计算得到，表示哪些位置应该匹配。
+
 
 @torch.no_grad()
 def mask_pts_at_padded_regions(grid_pt, mask):
@@ -18,6 +20,7 @@ def mask_pts_at_padded_regions(grid_pt, mask):
 
 
 def compute_supervision_coarse(data, config):
+    # 根据数据集名称选择 coarse 监督实现，并把结果写回 data。
     assert len(set(data['dataset_name'])) == 1, "Do not support mixed datasets training!"
     data_source = data['dataset_name'][0]
     if data_source.lower() in ['scannet', 'megadepth']:
@@ -43,7 +46,7 @@ def spvs_coarse(data, config):
         - for scannet dataset, there're 3 kinds of resolution {i, c, f}
         - for megadepth dataset, there're 4 kinds of resolution {i, i_resize, c, f}
     """
-    # 1. misc
+    # 1. 读取图片尺寸和 coarse 缩放比例。
     device = data['imagec_0'].device
     N, _, H0, W0 = data['imagec_0'].shape
     _, _, H1, W1 = data['imagec_1'].shape
@@ -52,7 +55,7 @@ def spvs_coarse(data, config):
     scale1 = scale * data['scale1'][:, None] if 'scale1' in data else scale
     h0, w0, h1, w1 = map(lambda x: x // scale, [H0, W0, H1, W1])
 
-    # 2. warp grids
+    # 2. 创建 coarse 网格，并用真实几何关系投影到另一张图。
     # create kpts in meshgrid and resize them to image resolution
     grid_pt0_c = create_meshgrid(h0, w0, False, device).reshape(1, h0*w0, 2).repeat(N, 1, 1)    # [N, hw, 2]
     grid_pt0_i = scale0 * grid_pt0_c
@@ -73,7 +76,7 @@ def spvs_coarse(data, config):
     w_pt0_c = w_pt0_i / scale1
     w_pt1_c = w_pt1_i / scale0
 
-    # 3. nearest neighbor
+    # 3. 把连续投影坐标四舍五入成最近 coarse 网格索引。
     w_pt0_c_round = w_pt0_c[:, :, :].round().long()
     nearest_index1 = w_pt0_c_round[..., 0] + w_pt0_c_round[..., 1] * w1
     w_pt1_c_round = w_pt1_c[:, :, :].round().long()
@@ -91,7 +94,7 @@ def spvs_coarse(data, config):
     arange_0[nearest_index0 == 0] = 0
     arange_b = torch.arange(N, device=device).unsqueeze(1)
 
-    # 4. construct a gt conf_matrix
+    # 4. 构造 [N, hw0, hw1] 的 0/1 ground-truth 匹配矩阵。
     conf_matrix_gt = torch.zeros(N, h0*w0, h1*w1, device=device)
     conf_matrix_gt[arange_b, arange_1, nearest_index1] = 1
     conf_matrix_gt[arange_b, nearest_index0, arange_0] = 1
@@ -124,6 +127,7 @@ def spvs_coarse(data, config):
 
 
 def compute_supervision_fine(data, config):
+    # fine 监督只针对 coarse 阶段选出的 M 个窗口。
     data_source = data['dataset_name'][0]
     if data_source.lower() in ['scannet', 'megadepth']:
         spvs_fine(data, config)
@@ -147,7 +151,7 @@ def spvs_fine(data, config):
             }
 
     """
-    # 1. misc
+    # 1. 读取 fine 尺寸和窗口大小 W（当前通常为 5）。
     device = data['imagec_0'].device
     N, _, H0, W0 = data['imagec_0'].shape
     _, _, H1, W1 = data['imagec_1'].shape
@@ -228,5 +232,4 @@ def spvs_fine(data, config):
     conf_matrix_f_gt[b_ids, i_ids, j_ids] = 1
 
     data.update({"conf_matrix_f_gt": conf_matrix_f_gt})
-
 

@@ -6,6 +6,8 @@ from loguru import _Logger, logger
 from itertools import chain
 
 import torch
+
+# 通用杂项：配置转换、GPU 参数解析、rank-zero 日志和进度条适配。
 from yacs.config import CfgNode as CN
 from pytorch_lightning.utilities import rank_zero_only
 
@@ -98,4 +100,3 @@ def tqdm_joblib(tqdm_object):
     finally:
         joblib.parallel.BatchCompletionCallBack = old_batch_callback
         tqdm_object.close()
-

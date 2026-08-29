@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from einops.einops import rearrange
 
+# 这里放 JamMa 共用的小模块。除 normalize_keypoints 外，大多数类都是 nn.Module，
+# 调用方式是 module(x)，PyTorch 会自动转到 module.forward(x)。
+
 
 class KeypointEncoder_wo_score(nn.Module):
     """ Joint encoding of visual appearance and location using MLPs"""
@@ -18,6 +21,7 @@ class KeypointEncoder_wo_score(nn.Module):
 def normalize_keypoints(
         kpts: torch.Tensor,
         size: torch.Tensor) -> torch.Tensor:
+    # 将像素坐标平移到图像中心，再除以图像长边的一半，约得到 [-1,1]。
     if not isinstance(size, torch.Tensor):
         size = torch.tensor(size, device=kpts.device, dtype=kpts.dtype)
     size = size.to(kpts)
@@ -61,6 +65,7 @@ class up_conv4(nn.Module):
         )
 
     def forward(self, x):
+        # 两路上采样：插值分支和反卷积分支都得到 [B,dim_mid,2H,2W]。
         x_inter = self.inter(self.lin(x))
         x_conv = self.transconv(x)
         x = self.cbr(x_inter+x_conv)
@@ -152,6 +157,7 @@ class MLPMixerEncoderLayer(nn.Module):
             x (torch.Tensor): [N, L, C]
             x_mask (torch.Tensor): [N, L] (optional)
         """
+        # 第一个 MLP 混合 token 维 L；转置后第二个 MLP 混合通道维 C。
         x = x + self.mlp1(x)
         x = x.transpose(1, 2)
         x = x + self.mlp2(x)

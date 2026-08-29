@@ -25,6 +25,8 @@ from src.datasets.megadepth import MegaDepthDataset
 from src.datasets.scannet import ScanNetDataset
 from src.datasets.sampler import RandomConcatSampler
 
+# LightningDataModule 负责创建 Dataset、Sampler 和 DataLoader；模型计算不在这里。
+
 
 class MultiSceneDataModule(pl.LightningDataModule):
     """ 
@@ -108,6 +110,7 @@ class MultiSceneDataModule(pl.LightningDataModule):
             stage (str): 'fit' in training phase, and 'test' in testing phase.
         """
 
+        # Lightning 在 fit/test 开始前调用这里，stage 决定准备哪一套数据。
         assert stage in ['fit', 'test'], "stage must be either fit or test"
 
         try:
@@ -171,7 +174,7 @@ class MultiSceneDataModule(pl.LightningDataModule):
                        mode='train',
                        min_overlap_score=0.,
                        pose_dir=None):
-        """ Setup train / val / test set"""
+        """根据配置读取场景列表，并创建一个或多个 Dataset。"""
         with open(scene_list_path, 'r') as f:
             npz_names = [name.split()[0] for name in f.readlines()]
 
@@ -282,6 +285,7 @@ class MultiSceneDataModule(pl.LightningDataModule):
         return ConcatDataset(datasets)
 
     def train_dataloader(self):
+        # 训练使用场景均衡 sampler，再按 batch_size 取数据。
         """ Build training dataloader for ScanNet / MegaDepth. """
         assert self.data_sampler in ['scene_balance']
         logger.info(f'[rank:{self.rank}/{self.world_size}]: Train Sampler and DataLoader re-init (should not re-init between epochs!).')
@@ -296,6 +300,7 @@ class MultiSceneDataModule(pl.LightningDataModule):
         return dataloader
     
     def val_dataloader(self):
+        # 验证不打乱数据，分布式时用 DistributedSampler 分片。
         """ Build validation dataloader for ScanNet / MegaDepth. """
         logger.info(f'[rank:{self.rank}/{self.world_size}]: Val Sampler and DataLoader re-init.')
         if not isinstance(self.val_dataset, abc.Sequence):
@@ -309,6 +314,7 @@ class MultiSceneDataModule(pl.LightningDataModule):
             return dataloaders
 
     def test_dataloader(self, *args, **kwargs):
+        # 测试同样不打乱，便于复现实验指标。
         logger.info(f'[rank:{self.rank}/{self.world_size}]: Test Sampler and DataLoader re-init.')
         sampler = DistributedSampler(self.test_dataset, shuffle=False)
         return DataLoader(self.test_dataset, sampler=sampler, **self.test_loader_params)

@@ -1,6 +1,8 @@
 import bisect
 import numpy as np
 import matplotlib.pyplot as plt
+
+# 可视化模块：读取 data 中的匹配点、置信度和误差，生成结果图片。
 import matplotlib
 import cv2
 import torch

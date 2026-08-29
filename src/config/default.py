@@ -1,4 +1,6 @@
 from yacs.config import CfgNode as CN
+
+# 训练/测试的默认超参数模板；get_cfg_defaults() 返回它的副本。
 _CN = CN()
 
 ##############  ↓  JAMMA Pipeline  ↓  ##############

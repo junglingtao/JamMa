@@ -12,6 +12,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# 这里是 ConvNeXtV2 使用的两个基础层：支持两种 Tensor 排布的 LayerNorm，
+# 以及按通道重新标定响应强度的 GRN。它们都不改变 Tensor 形状。
+
 
 class LayerNorm(nn.Module):
     """ LayerNorm that supports two data formats: channels_last (default) or channels_first.
@@ -31,6 +34,7 @@ class LayerNorm(nn.Module):
         self.normalized_shape = (normalized_shape,)
 
     def forward(self, x):
+        # channels_last: [B,H,W,C]；channels_first: [B,C,H,W]。
         if self.data_format == "channels_last":
             return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
         elif self.data_format == "channels_first":
@@ -51,6 +55,7 @@ class GRN(nn.Module):
         self.beta = nn.Parameter(torch.zeros(1, 1, 1, dim))
 
     def forward(self, x):
+        # 在空间维 H/W 上计算每个通道的响应大小，输出形状仍为 [B,H,W,C]。
         Gx = torch.norm(x, p=2, dim=(1, 2), keepdim=True)
         Nx = Gx / (Gx.mean(dim=-1, keepdim=True) + 1e-6)
         return self.gamma * (x * Nx) + self.beta + x

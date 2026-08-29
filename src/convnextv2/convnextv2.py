@@ -11,6 +11,9 @@ import torch.nn.functional as F
 from timm.models.layers import trunc_normal_, DropPath
 from .utils import LayerNorm, GRN
 
+# ConvNeXtV2 在这里输出的是“特征图”，不是最终分类标签。
+# JamMa 只使用前两个 stage 的 /4、/8 特征。
+
 
 class Block(nn.Module):
     """ ConvNeXtV2 Block.
@@ -31,10 +34,12 @@ class Block(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
     def forward(self, x):
+        # x 的布局是 [batch, channel, height, width]。
         input = x
         x = self.dwconv(x)
         x = x.permute(0, 2, 3, 1)  # (N, C, H, W) -> (N, H, W, C)
         x = self.norm(x)
+        # Linear 默认作用在最后一维 C，因此前面先把 C 放到最后。
         x = self.pwconv1(x)
         x = self.act(x)
         x = self.grn(x)
@@ -63,7 +68,8 @@ class ConvNeXtV2(nn.Module):
                  ):
         super().__init__()
         self.depths = depths
-        self.downsample_layers = nn.ModuleList()  # stem and 3 intermediate downsampling conv layers
+        # 4 个 downsample：第 0 个是 stem，后 3 个把空间尺寸各缩小一半。
+        self.downsample_layers = nn.ModuleList()
         stem = nn.Sequential(
             nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4),
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
@@ -76,7 +82,8 @@ class ConvNeXtV2(nn.Module):
             )
             self.downsample_layers.append(downsample_layer)
 
-        self.stages = nn.ModuleList()  # 4 feature resolution stages, each consisting of multiple residual blocks
+        # 每个 stage 内只有残差 Block，不改变 H/W。
+        self.stages = nn.ModuleList()
         dp_rates = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
         cur = 0
         for i in range(4):
@@ -99,12 +106,14 @@ class ConvNeXtV2(nn.Module):
             nn.init.constant_(m.bias, 0)
 
     def forward_features(self, x):
+        # 分类模式：走完整 4 个尺度，最后全局平均池化成 [B,C]。
         for i in range(4):
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
         return self.norm(x.mean([-2, -1]))  # global average pooling, (N, C, H, W) -> (N, C)
 
     def forward_features_8(self, x):
+        # JamMa 模式：保留 /4 和 /8 的二维特征图，返回字典而非分类向量。
         feat = {}
         x = self.downsample_layers[0](x)
         x = self.stages[0](x)
@@ -115,6 +124,7 @@ class ConvNeXtV2(nn.Module):
         return feat  # global average pooling, (N, C, H, W) -> (N, C)
 
     def forward_features_4(self, x):
+        # 只计算 /4 特征，供需要浅层特征的调用者使用。
         feat = {}
         x = self.downsample_layers[0](x)
         x = self.stages[0](x)

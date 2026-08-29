@@ -12,6 +12,8 @@ from src.lightning.data import MultiSceneDataModule
 from src.lightning.lightning_jamma import PL_JamMa
 from src.utils.profiler import build_profiler
 
+# 测试入口：读取 checkpoint -> 创建测试 DataLoader -> trainer.test。
+
 
 def parse_args():
     # init a costum parser which will be added into pl.Trainer parser

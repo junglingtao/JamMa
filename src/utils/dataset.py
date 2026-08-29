@@ -11,6 +11,9 @@ from PIL import ImageFile
 import torchvision.transforms as transforms
 from torchvision.transforms.functional import InterpolationMode
 
+# 数据 IO 总入口：读取图片、深度、内参，并把 numpy 数组转换成 Tensor。
+# 单张图像通常是 [C,H,W]，DataLoader 拼 batch 后才是 [B,C,H,W]。
+
 
 try:
     # for internel use only
@@ -66,6 +69,7 @@ def imread_color(path, client=SCANNET_CLIENT):
 
 
 def get_resized_wh(w, h, resize=None):
+    # 按最长边 resize，返回新的宽高。
     if resize is not None:  # resize the longer edge
         scale = resize / max(h, w)
         w_new, h_new = int(round(w*scale)), int(round(h*scale))
@@ -75,6 +79,7 @@ def get_resized_wh(w, h, resize=None):
 
 
 def get_divisible_wh(w, h, df=None):
+    # 把尺寸调整为 df 的整数倍，方便网络下采样。
     if df is not None:
         w_new, h_new = map(lambda x: int(x // df * df), [w, h])
     else:
@@ -83,6 +88,7 @@ def get_divisible_wh(w, h, df=None):
 
 
 def pad_bottom_right(inp, pad_size, ret_mask=False):
+    # 右下角补零到正方形；mask 标记原图有效区域。
     assert isinstance(pad_size, int) and pad_size >= max(inp.shape[-2:]), f"{pad_size} < {max(inp.shape[-2:])}"
     mask = None
     if inp.ndim == 2:
@@ -124,6 +130,7 @@ def pad_bottom_right_c(inp, pad_size, ret_mask=False):
 
 # --- MEGADEPTH ---
 def read_megadepth_color(path, resize=None, df=None, padding=False):
+    # 读取彩图，返回 Tensor、缩放比例、padding mask 和 padding 前尺寸。
     # read image
     image = Image.open(path)
     w, h = image.width, image.height
@@ -154,6 +161,7 @@ def read_megadepth_color(path, resize=None, df=None, padding=False):
 
 
 def read_megadepth_gray(path, resize=None, df=None, padding=False, augment_fn=None):
+    # 读取灰度图，并可选执行数据增强。
     """
     Args:
         resize (int, optional): the longer edge of resized images. None for no resize.
@@ -186,6 +194,7 @@ def read_megadepth_gray(path, resize=None, df=None, padding=False, augment_fn=No
 
 
 def read_megadepth_depth(path, pad_to=None):
+    # 读取 HDF5 深度图，结果是二维深度数据。
     if str(path).startswith('s3://'):
         depth = load_array_from_s3(path, MEGADEPTH_CLIENT, None, use_h5py=True)
     else:
