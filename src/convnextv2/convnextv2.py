@@ -6,32 +6,36 @@
 # LICENSE file in the root directory of this source tree.
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from timm.models.layers import trunc_normal_, DropPath
-from .utils import LayerNorm, GRN
+from timm.models.layers import DropPath, trunc_normal_
+from torch import nn
+
+from .utils import GRN, LayerNorm
 
 # ConvNeXtV2 在这里输出的是“特征图”，不是最终分类标签。
 # JamMa 只使用前两个 stage 的 /4、/8 特征。
 
 
 class Block(nn.Module):
-    """ ConvNeXtV2 Block.
+    """ConvNeXtV2 Block.
 
     Args:
         dim (int): Number of input channels.
         drop_path (float): Stochastic depth rate. Default: 0.0
     """
 
-    def __init__(self, dim, drop_path=0.):
+    def __init__(self, dim, drop_path=0.0):
         super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)  # depthwise conv
+        self.dwconv = nn.Conv2d(
+            dim, dim, kernel_size=7, padding=3, groups=dim
+        )  # depthwise conv
         self.norm = LayerNorm(dim, eps=1e-6)
-        self.pwconv1 = nn.Linear(dim, 4 * dim)  # pointwise/1x1 convs, implemented with linear layers
+        self.pwconv1 = nn.Linear(
+            dim, 4 * dim
+        )  # pointwise/1x1 convs, implemented with linear layers
         self.act = nn.GELU()
         self.grn = GRN(4 * dim)
         self.pwconv2 = nn.Linear(4 * dim, dim)
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
     def forward(self, x):
         # x 的布局是 [batch, channel, height, width]。
@@ -51,7 +55,7 @@ class Block(nn.Module):
 
 
 class ConvNeXtV2(nn.Module):
-    """ ConvNeXt V2
+    """ConvNeXt V2
 
     Args:
         in_chans (int): Number of input image channels. Default: 3
@@ -62,17 +66,22 @@ class ConvNeXtV2(nn.Module):
         head_init_scale (float): Init scaling value for classifier weights and biases. Default: 1.
     """
 
-    def __init__(self, in_chans=3, num_classes=1000,
-                 depths=[3, 3, 9, 3], dims=[96, 192, 384, 768],
-                 drop_path_rate=0., head_init_scale=1.
-                 ):
+    def __init__(
+        self,
+        in_chans=3,
+        num_classes=1000,
+        depths=[3, 3, 9, 3],
+        dims=[96, 192, 384, 768],
+        drop_path_rate=0.0,
+        head_init_scale=1.0,
+    ):
         super().__init__()
         self.depths = depths
         # 4 个 downsample：第 0 个是 stem，后 3 个把空间尺寸各缩小一半。
         self.downsample_layers = nn.ModuleList()
         stem = nn.Sequential(
             nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4),
-            LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
+            LayerNorm(dims[0], eps=1e-6, data_format="channels_first"),
         )
         self.downsample_layers.append(stem)
         for i in range(3):
@@ -88,7 +97,10 @@ class ConvNeXtV2(nn.Module):
         cur = 0
         for i in range(4):
             stage = nn.Sequential(
-                *[Block(dim=dims[i], drop_path=dp_rates[cur + j]) for j in range(depths[i])]
+                *[
+                    Block(dim=dims[i], drop_path=dp_rates[cur + j])
+                    for j in range(depths[i])
+                ]
             )
             self.stages.append(stage)
             cur += depths[i]
@@ -102,7 +114,7 @@ class ConvNeXtV2(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv2d, nn.Linear)):
-            trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=0.02)
             nn.init.constant_(m.bias, 0)
 
     def forward_features(self, x):
@@ -110,7 +122,9 @@ class ConvNeXtV2(nn.Module):
         for i in range(4):
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
-        return self.norm(x.mean([-2, -1]))  # global average pooling, (N, C, H, W) -> (N, C)
+        return self.norm(
+            x.mean([-2, -1])
+        )  # global average pooling, (N, C, H, W) -> (N, C)
 
     def forward_features_8(self, x):
         # JamMa 模式：保留 /4 和 /8 的二维特征图，返回字典而非分类向量。
